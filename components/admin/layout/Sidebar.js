@@ -14,7 +14,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     >
       <Link href="" passHref className="brand active">
         <i className="bx bxs-smile"></i>
-        <span className="text">AdminHub</span>
+        <span className="text">AdminHubwwww</span>
       </Link>
       <ul className="side-menu top">
         <li className={router.pathname === "/admin/dashboard" ? "active" : ""}>
