@@ -12,18 +12,6 @@ export const config = {
 
 export default async function handler(req, res) {
 
-  //  else if (req.method === "GET") {
-  //   try {
-  //     const [rows] = await db.query(
-  //       "SELECT portfolio.*, service.service_name FROM portfolio INNER JOIN service ON portfolio.service_id = service.id"
-  //     );
-  //     res.status(200).json(rows);
-  //   } catch (error) {
-  //     console.error("Database error:", error);
-  //     res.status(500).json({ error: "Internal server error" });
-  //   }
-  // } 
-
   if (req.method === "GET") {
     try {
       const [rows] = await db.query(`
@@ -53,8 +41,6 @@ export default async function handler(req, res) {
     }
   }
 
-
-
   if (req.method === "POST") {
     const form = new IncomingForm();
     form.parse(req, async (err, fields, files) => {
@@ -62,11 +48,7 @@ export default async function handler(req, res) {
         console.error("Formidable error:", err);
         return res.status(400).json({ error: "Failed to parse form data" });
       }
-
       const { title, description, service_id, tecnology_id } = fields;
-      console.log("Fields received:", fields);
-      console.log("Raw tecnology_id:", tecnology_id);
-
       try {
         // Parse the tecnology_id field back into an array
         const tecnology_ids = JSON.parse(tecnology_id);
@@ -108,8 +90,6 @@ export default async function handler(req, res) {
       }
     });
   }
-
-
 
   else {
     res.setHeader("Allow", ["GET", "POST"]);

@@ -5,29 +5,9 @@ import { FaEdit } from "react-icons/fa";
 import { MdDelete } from "react-icons/md";
 import axios from "axios";
 
-
 function Portfolio() {
   const [sidebarHidden, setSidebarHidden] = useState(true);
   const [isDarkMode, setDarkMode] = useState(false);
-  const [portfolio, setPortfolio] = useState([]);
-  const [services, setServices] = useState([]);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    service_id: "",
-    image: null,
-    tecnology_id: [],
-  });
-  const [EditPopupOpen, setEditPopupOpen] = useState(false);
-  const [editportfolio, seteditportfolio] = useState({
-    title: "",
-    description: "",
-    thumbnail: null,
-    service_id: "",
-  });
-  const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -50,16 +30,16 @@ function Portfolio() {
     document.body.classList.toggle("dark");
   };
 
-  // Fetch Portfolio Data
+  // -------------------Fetch Portfolio Data----->
+  const [portfolio, setPortfolio] = useState([]);
   const fetchData = async () => {
     const res = await fetch("/api/portfolio/route");
     const result = await res.json();
-    console.log(result);
     setPortfolio(result);
-    
   };
 
-  // Fetch Services Data
+  // -----------------Fetch Services Data---------->
+  const [services, setServices] = useState([]);
   const fetchServices = async () => {
     const res = await fetch("/api/service/route");
     const result = await res.json();
@@ -99,6 +79,14 @@ function Portfolio() {
   }, []);
 
   // -------------ADD CODE--------->
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    service_id: "",
+    image: null,
+    tecnology_id: [],
+  });
   const openPopup = () => {
     setIsAddOpen(true);
   };
@@ -107,31 +95,28 @@ function Portfolio() {
   };
   const handleInputChange = (e) => {
     const { name, value, selectedOptions } = e.target;
-    if (name === 'tecnology_id') {
+    if (name === "tecnology_id") {
       const values = Array.from(selectedOptions).map((option) => option.value);
       setFormData({ ...formData, [name]: values });
-
     } else {
       setFormData({ ...formData, [name]: value });
     }
   };
-
   const handleFileChange = (e) => {
     setFormData({
       ...formData,
       image: e.target.files[0],
     });
   };
-
   const saveData = async () => {
-
-    console.log(formData)
     const formDataToSend = new FormData();
     formDataToSend.append("title", formData.title);
     formDataToSend.append("description", formData.description);
     formDataToSend.append("service_id", formData.service_id);
-    // formDataToSend.append('tecnology_id', formData.tecnology_id);
-    formDataToSend.append('tecnology_id', JSON.stringify(formData.tecnology_id));
+    formDataToSend.append(
+      "tecnology_id",
+      JSON.stringify(formData.tecnology_id)
+    );
     formDataToSend.append("image", formData.image);
 
     try {
@@ -148,8 +133,11 @@ function Portfolio() {
           tecnology_id: [],
           image: null,
         });
-        fetchData();
-        closePopup();
+        if(response){
+          fetchData();
+          closePopup();
+        }
+       
       } else {
         console.error("Failed to add portfolio item:", result.error);
       }
@@ -158,8 +146,10 @@ function Portfolio() {
     }
   };
 
+  // ------------DELETE DATA------------------------>
+  const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
 
-  // ------------DELETE DATA----------->
   const openDeletePopup = (id) => {
     setIsDeletePopupOpen(true);
     setDeleteId(id);
@@ -168,72 +158,115 @@ function Portfolio() {
     setIsDeletePopupOpen(false);
   };
   const deletePortfolio = async () => {
+    console.log(deleteId);
     try {
       const response = await axios.delete(`/api/portfolio/${deleteId}`);
       if (response.status === 200) {
         closeDeletePopup();
-        fetchData();
+        fetchData(); // Fetch updated data after deletion
       }
-    } catch (err) {
-      console.log(err);
+    } catch (error) {
+      console.error("Error deleting portfolio:", error);
     }
   };
 
-  // --------------EDIT DATA----------->
+  // ------------------------EDIT CODE--------------------->
+  const [editPopupOpen, setEditPopupOpen] = useState(false);
+  const [editPortfolio, setEditPortfolio] = useState({
+    id: "",
+    title: "",
+    description: "",
+    thumbnail: null,
+    service_name: "",
+    tecnology_names: [],
+  });
   const openEditPopup = (id) => {
+    console.log(id);
     fetchPortfolio(id);
     setEditPopupOpen(true);
   };
   const closeEditPopup = () => {
     setEditPopupOpen(false);
   };
-  const fetchPortfolio = async (editid) => {
+  const fetchPortfolio = async (editId) => {
     try {
-      const response = await axios.get(`/api/portfolio/${editid}`);
-      seteditportfolio(response.data);
+      const response = await axios.get(`/api/portfolio/${editId}`);
+      const service = response.data;
+      console.log(service);
+      const selectedTechnologies = service.tecnology_names
+        .split(",")
+        .map((tech) => tech.trim());
+      setEditPortfolio({
+        ...service,
+        id: editId,
+        tecnology_names: selectedTechnologies,
+      });
     } catch (error) {
       console.error("Error fetching portfolio data:", error);
     }
   };
-  const hendleinputeditchange = (e) => {
-    const { name, value } = e.target;
-    seteditportfolio((prevservice) => ({
-      ...prevservice,
-      [name]: value,
-    }));
+  const handleInputEditChange = (e) => {
+    const { name, value, options, multiple } = e.target;
+
+    if (multiple) {
+      const selectedOptions = Array.from(options)
+        .filter((option) => option.selected)
+        .map((option) => option.value);
+      setEditPortfolio((prevService) => ({
+        ...prevService,
+        [name]: selectedOptions,
+      }));
+    } else {
+      setEditPortfolio((prevService) => ({
+        ...prevService,
+        [name]: value,
+      }));
+    }
   };
   const handleFileEdit = (e) => {
-    seteditportfolio({
-      ...editportfolio,
+    setEditPortfolio({
+      ...editPortfolio,
       thumbnail: e.target.files[0],
     });
   };
-  const saveEditData = async (editid) => {
+  const saveEditData = async () => {
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append("title", editportfolio.title);
-      formDataToSend.append("description", editportfolio.description);
-      formDataToSend.append("thumbnail", editportfolio.thumbnail);
-      formDataToSend.append("service_id", editportfolio.service_id);
-
-      const { response } = await axios.put(`/api/portfolio/${editid}`, formDataToSend, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      formDataToSend.append("title", editPortfolio.title);
+      formDataToSend.append("description", editPortfolio.description);
+      formDataToSend.append("service_name", editPortfolio.service_name);
+      formDataToSend.append(
+        "tecnology_names",
+        JSON.stringify(editPortfolio.tecnology_names)
+      );
+      if (editPortfolio.thumbnail instanceof File) {
+        formDataToSend.append("thumbnail", editPortfolio.thumbnail);
+      }
+      const response = await axios.put(
+        `/api/portfolio/${editPortfolio.id}`,
+        formDataToSend,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
       if (response) {
         fetchPortfolio();
         closeEditPopup();
+        
       }
     } catch (error) {
       console.error("Error updating portfolio:", error);
     }
   };
+
+  // ----------trucade--------->
   function truncateString(str, maxLength) {
     if (str.length <= maxLength) {
       return str;
     }
-    return str.slice(0, maxLength) + '...';
+    return str.slice(0, maxLength) + "...";
   }
 
   return (
@@ -284,7 +317,7 @@ function Portfolio() {
             {portfolio &&
               portfolio.map((port, index) => (
                 <tr
-                  key={port.id}
+                  key={port.portfolio_id}
                   className="bg-white border-b dark:bg-gray-800 dark:border-gray-700"
                 >
                   <th
@@ -294,7 +327,9 @@ function Portfolio() {
                     {index + 1}
                   </th>
                   <td className="px-6 py-4">{port.title}</td>
-                  <td className="px-6 py-4">{truncateString(port.description, 5)}</td>
+                  <td className="px-6 py-4">
+                    {truncateString(port.description, 5)}
+                  </td>
                   <td>
                     <img
                       src={`/assets/Upload/${port.thumbnail}`}
@@ -313,13 +348,13 @@ function Portfolio() {
 
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => openEditPopup(port.id)}
+                      onClick={() => openEditPopup(port.portfolio_id)}
                       className="font-medium text-blue-600 dark:text-blue-500 hover:underline px-4 text-1xl"
                     >
                       <FaEdit />
                     </button>
                     <button
-                      onClick={() => openDeletePopup(port.id)}
+                      onClick={() => openDeletePopup(port.portfolio_id)}
                       className="font-medium text-red-600 dark:text-blue-500 hover:underline text-1xl"
                     >
                       <MdDelete />
@@ -402,78 +437,6 @@ function Portfolio() {
         </div>
       )}
 
-      {/* -------------EDIT POPUP MODAL-------- */}
-      {EditPopupOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-1/3">
-            <h2 className="text-xl font-bold mb-4">Edit Portfolio</h2>
-            <div className="w-full pr-2">
-              <label className="block mb-1">Title:</label>
-              <input
-                type="text"
-                name="title"
-                value={editportfolio.title}
-                onChange={hendleinputeditchange}
-                className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
-              />
-            </div>
-
-
-            <label className="block mb-1">Description:</label>
-            <textarea
-              name="description"
-              value={editportfolio.description}
-              onChange={hendleinputeditchange}
-              className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
-            />
-            <div className="w-full ">
-              <label className="block mb-1">Service:</label>
-
-              <select
-                name="service_id"
-                value={editportfolio.service_id}
-                onChange={hendleinputeditchange}
-                className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
-              >
-                <option value="">Select Service</option>
-                {services.map((service) => (
-                  <option key={service.service_id} value={service.service_id}>
-                    {service.service_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <label className="block mb-1">Thumbnail:</label>
-            <input
-              type="file"
-              name="thumbnail"
-              onChange={handleFileEdit}
-              className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
-            />
-
-            <img
-              src={`/assets/Upload/${editportfolio.thumbnail}`}
-              alt="image"
-              width="30px"
-            />
-            <div className="flex justify-end mt-2">
-              <button
-                onClick={() => saveEditData(editportfolio.id)}
-                className="bg-blue-500 text-white py-2 px-4 rounded-lg"
-              >
-                Save
-              </button>
-              <button
-                onClick={closeEditPopup}
-                className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg ml-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/*-------------------DELETE POPUP MODAL--------*/}
       {isDeletePopupOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
@@ -489,6 +452,99 @@ function Portfolio() {
               </button>
               <button
                 onClick={closeDeletePopup}
+                className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg ml-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* -------------EDIT POPUP MODAL-------- */}
+      {editPopupOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+          <div className="h-[95%] overflow-auto bg-white rounded-lg p-8 w-full max-w-lg scrollbar-thin scrollbar-thumb-rounded-full scrollbar-thumb-gray-400">
+            <h2 className="text-xl font-bold mb-4">Edit Portfolio</h2>
+            <div className="w-full">
+              <label className="block mb-1">Title:</label>
+              <input
+                type="text"
+                name="title"
+                value={editPortfolio.title}
+                onChange={handleInputEditChange}
+                className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
+              />
+            </div>
+            <div className="w-full">
+              <label className="block mb-1">Description:</label>
+              <textarea
+                name="description"
+                value={editPortfolio.description}
+                onChange={handleInputEditChange}
+                className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
+              />
+            </div>
+            <div className="w-full">
+              <label className="block mb-1">Service:</label>
+              <select
+                name="service_name"
+                value={editPortfolio.service_name}
+                onChange={handleInputEditChange}
+                className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
+              >
+                <option value="">Select Service</option>
+                {services.map((service) => (
+                  <option key={service.service_id} value={service.service_name}>
+                    {service.service_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="w-full">
+              <label className="block mb-1">Technologies:</label>
+              <select
+                className="px-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                id="tecno_id"
+                name="tecnology_names"
+                multiple
+                value={editPortfolio.tecnology_names}
+                onChange={handleInputEditChange}
+              >
+                {Tecnology.map((tecno) => (
+                  <option key={tecno.id} value={tecno.tecno_name}>
+                    {tecno.tecno_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="w-full">
+              <label className="block mb-1">Thumbnail:</label>
+              <input
+                type="file"
+                name="thumbnail"
+                onChange={handleFileEdit}
+                className="border border-gray-300 p-2 rounded-lg mb-4 w-full"
+              />
+              {editPortfolio.thumbnail &&
+                typeof editPortfolio.thumbnail === "string" && (
+                  <img
+                    src={`/assets/Upload/${editPortfolio.thumbnail}`}
+                    alt="thumbnail"
+                    className="mb-4"
+                    style={{ maxWidth: "10%", height: "auto" }}
+                  />
+                )}
+            </div>
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={saveEditData}
+                className="bg-blue-500 text-white py-2 px-4 rounded-lg"
+              >
+                Save
+              </button>
+              <button
+                onClick={closeEditPopup}
                 className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg ml-2"
               >
                 Cancel

@@ -11,88 +11,54 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  const { id } = req.query;
+  const { id } = req.query; 
 
   if (req.method === "GET") {
-    try {
-      const [rows] = await db.query("SELECT * FROM portfolio WHERE id = ?", [
-        id,
-      ]);
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        p.id AS portfolio_id,
+        p.title,
+        p.description,
+        p.thumbnail,
+        GROUP_CONCAT(DISTINCT s.service_name) AS service_name,
+        GROUP_CONCAT(DISTINCT t.tecno_name) AS tecnology_names,
+        GROUP_CONCAT(DISTINCT t.tecno_image) AS tecnology_images
+      FROM 
+        portfolio p
+      JOIN 
+        portfolio_img pi ON p.id = pi.portfolio_id
+      JOIN 
+        service s ON pi.service_id = s.id
+      JOIN 
+        tecnology t ON pi.tecnology_id = t.id
+      WHERE 
+        p.id = ?
+      GROUP BY 
+        p.id, p.title, p.description, p.thumbnail;
+    `, [id]);
 
-      if (rows.length === 0) {
-        return res.status(404).json({ error: "Portfolio not found" });
-      }
-
-      res.status(200).json(rows[0]);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: error.message });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Portfolio not found" });
     }
-  } 
-  // else if (req.method === "DELETE") {
-  //   try {
-  //     const [portfolio] = await db.query(
-  //       "SELECT thumbnail FROM portfolio WHERE id = ?",
-  //       [id]
-  //     );
 
-  //     if (portfolio.length !== 0) {
-  //       const thumbnail = portfolio[0].thumbnail;
-  //       if (thumbnail) {
-  //         const imagePath = path.join(
-  //           process.cwd(),
-  //           "public/assets/Upload",
-  //           thumbnail
-  //         );
-
-  //         // Check if the file exists before unlinking
-  //         if (fs.existsSync(imagePath)) {
-  //           try {
-  //             await unlink(imagePath);
-  //             console.log(`Deleted file: ${imagePath}`);
-  //           } catch (error) {
-  //             console.error(`Error deleting thumbnail: ${error.message}`);
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     const q = "DELETE FROM portfolio WHERE id = ?";
-  //     const [rows] = await db.query(q, [id]);
-
-  //     console.log(rows);
-  //     res.status(200).json({ message: "success" });
-  //   } catch (error) {
-  //     console.error("Error deleting portfolio:", error);
-  //     res.status(500).json({ message: "Cannot delete portfolio" });
-  //   }
-  // } 
-
-  else if (req.method === "DELETE") {
+    res.status(200).json(rows[0]);
+  } catch (error) {
+    console.error("Database error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+  }
+  
+   if (req.method === "DELETE") {
     try {
-      // Fetch the portfolio_img entry to get portfolio_id
-      const [portfolioImg] = await db.query(
-        "SELECT portfolio_id FROM portfolio_img WHERE id = ?",
+      await db.query("DELETE FROM portfolio_img WHERE portfolio_id = ?", [id]);
+
+      const [portfolio] = await db.query(
+        "SELECT thumbnail FROM portfolio WHERE id = ?",
         [id]
       );
 
-      if (portfolioImg.length === 0) {
-        return res.status(404).json({ error: "Portfolio image not found" });
-      }
-
-      const portfolioId = portfolioImg[0].portfolio_id;
-
-      // Delete related entries in the junction table
-      const deleteImgQuery = "DELETE FROM portfolio_img WHERE portfolio_id = ?";
-      await db.query(deleteImgQuery, [portfolioId]);
-
-      // Fetch the portfolio entry to get the thumbnail
-      const [portfolio] = await db.query(
-        "SELECT thumbnail FROM portfolio WHERE id = ?",
-        [portfolioId]
-      );
-
-      if (portfolio.length !== 0) {
+      if (portfolio.length > 0) {
         const thumbnail = portfolio[0].thumbnail;
         if (thumbnail) {
           const imagePath = path.join(
@@ -103,21 +69,14 @@ export default async function handler(req, res) {
 
           // Check if the file exists before unlinking
           if (fs.existsSync(imagePath)) {
-            try {
-              await unlink(imagePath);
-              console.log(`Deleted file: ${imagePath}`);
-            } catch (error) {
-              console.error(`Error deleting thumbnail: ${error.message}`);
-            }
+            await unlink(imagePath);
+            console.log(`Deleted file: ${imagePath}`);
           }
         }
       }
 
       // Delete the portfolio entry
-      const deletePortfolioQuery = "DELETE FROM portfolio WHERE id = ?";
-      const [rows] = await db.query(deletePortfolioQuery, [portfolioId]);
-
-      console.log(rows);
+      await db.query("DELETE FROM portfolio WHERE id = ?", [id]);
 
       res.status(200).json({ message: "Portfolio and related data deleted successfully" });
     } catch (error) {
@@ -126,69 +85,77 @@ export default async function handler(req, res) {
     }
   } 
   
-  else if (req.method === "PUT") {
+   if (req.method === "PUT") {
     try {
-        const form = new IncomingForm();
-        form.parse(req, async (err, fields, files) => {
-            const { title, description, service_id } = fields;
+      const form = new IncomingForm();
+      form.parse(req, async (err, fields, files) => {
+      
+        if (err) {
+          return res.status(400).json({ message: "Invalid data submitted", error: err.message });
+        }
+        const { title, description, service_id, tecnology_id } = fields;
+        let thumbnail = null;
+        if (files.thumbnail) {
+          const oldPath = files.thumbnail.filepath;
+          const newFileName = `${Date.now()}_${files.thumbnail.originalFilename.replace(/\s/g, "")}`;
+          const projectDirectory = path.resolve(process.cwd(), "public/assets/Upload");
+          const newPath = path.join(projectDirectory, newFileName);
 
-            const oldPath = files.thumbnail ? files.thumbnail[0].filepath : null;
-            const thumbnail = files.thumbnail ? `${Date.now()}_${files.thumbnail[0].originalFilename}` : null;
+          await fs.promises.mkdir(projectDirectory, { recursive: true });
+          await fs.promises.copyFile(oldPath, newPath);
+          thumbnail = newFileName;
 
-            const [productRows] = await db.query(
-                "SELECT thumbnail FROM portfolio WHERE id = ?",
-                [id]
-            );
+          const [oldThumbnailResult] = await db.query("SELECT thumbnail FROM portfolio WHERE id = ?", [id]);
+          const oldThumbnail = oldThumbnailResult.length > 0 ? oldThumbnailResult[0].thumbnail : null;
 
-            if (productRows.length === 0) {
-                return res.status(404).json({ message: "Product not found" });
+          if (oldThumbnail) {
+            const oldImagePath = path.join(projectDirectory, oldThumbnail);
+            if (fs.existsSync(oldImagePath)) {
+              await fs.promises.unlink(oldImagePath);
+            } else {
+              console.log(`File does not exist: ${oldImagePath}`);
             }
+          }
 
-            // Handle case where no thumbnail is uploaded
-            if (!thumbnail) {
-                const sql = "UPDATE portfolio SET title = ?, description = ?, service_id = ? WHERE id = ?";
-                const params = [title, description, service_id, id];
-                await db.query(sql, params);
-                return res.status(200).json({ message: "Product updated successfully without changing the thumbnail" });
-            }
+          await fs.promises.unlink(oldPath);
+        }
 
-            const newFileName = thumbnail.replace(/\s/g, "");
-            const projectDirectory = path.resolve(process.cwd(), "public/assets/Upload");
-            const newPath = path.join(projectDirectory, newFileName);
+        // Update portfolio entry in the database
+        const updateParams = [title, description];
+        let updateQuery = "UPDATE portfolio SET title = ?, description = ?";
+        if (service_id) {
+          updateQuery += ", service_id = ?";
+          updateParams.push(service_id);
+        }
+        if (thumbnail) {
+          updateQuery += ", thumbnail = ?";
+          updateParams.push(thumbnail);
+        }
+        updateQuery += " WHERE id = ?";
+        updateParams.push(id);
 
-            // Ensure the destination directory exists
-            await fs.promises.mkdir(projectDirectory, { recursive: true });
+        await db.query(updateQuery, updateParams);
 
-            fs.copyFile(oldPath, newPath, async (moveErr) => {
-                if (moveErr) {
-                    return res.status(500).json({ message: "File move failed." });
-                }
+        // Update portfolio_img table for technology entries
+        // if (tecnology_id) {
+        //   const tecnology_ids = JSON.parse(tecnology_id);
 
-                const sql = "UPDATE portfolio SET title = ?, description = ?, thumbnail = ?, service_id = ? WHERE id = ?";
-                const params = [title, description, newFileName, service_id, id];
-                await db.query(sql, params);
+        //   await db.query("DELETE FROM portfolio_img WHERE portfolio_id = ?", [id]);
 
-                // Delete old thumbnail file if it exists
-                if (productRows.length !== 0) {
-                    const oldThumbnail = productRows[0].thumbnail;
-                    if (oldThumbnail) {
-                        const oldImagePath = path.join(projectDirectory, oldThumbnail);
-                        if (fs.existsSync(oldImagePath)) {
-                            await fs.promises.unlink(oldImagePath);
-                        } else {
-                            console.log(`File does not exist: ${oldImagePath}`);
-                        }
-                    }
-                }
+        //   const insertPromises = tecnology_ids.map((tecnoId) => {
+        //     return db.query("INSERT INTO portfolio_img (portfolio_id, tecnology_id) VALUES (?, ?)", [id, tecnoId]);
+        //   });
 
-                res.status(200).json({ message: "Product updated successfully" });
-            });
-        });
-    } catch (err) {
-        res.status(500).json({ message: "Product update failed", error: err.message });
+        //   await Promise.all(insertPromises);
+        // }
+
+        res.status(200).json({ message: "Portfolio updated successfully" });
+      });
+    } catch (error) {
+      console.error("Error updating portfolio:", error);
+      res.status(500).json({ message: "Portfolio update failed", error: error.message });
     }
-} else {
+  } else {
     res.status(405).json({ message: "Method not allowed" });
-}
-
+  }
 }

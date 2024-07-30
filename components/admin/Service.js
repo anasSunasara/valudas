@@ -208,6 +208,7 @@ function Product() {
     <>
       <Sidebar isOpen={!sidebarHidden} toggleSidebar={toggleSidebar} />
       <Navbar toggleSidebar={toggleSidebar} toggleDarkMode={toggleDarkMode} />
+      
       <button
         className="py-2 px-7 border-2 rounded-lg text-white  ms-5 mt-5 absolute right-[6rem]"
         onClick={openPopup}

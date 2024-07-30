@@ -14,7 +14,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     >
       <Link href="" passHref className="brand active">
         <i className="bx bxs-smile"></i>
-        <span className="text">AdminHubwwww</span>
+        <span className="text">AdminHub</span>
       </Link>
       <ul className="side-menu top">
         <li className={router.pathname === "/admin/dashboard" ? "active" : ""}>
@@ -50,8 +50,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <span className="text">Settings</span>
           </Link>
         </li>
-        <li>
-          <Link href="/logout" className="logout active">
+        <li  className={router.pathname === "/admin/login" ? "active" : ""}>
+          <Link href="/admin/login" className="logout active">
             <i className="bx bxs-log-out-circle"></i>
             <span className="text">Logout</span>
           </Link>
